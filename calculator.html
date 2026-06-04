@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Калькулятор</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+    }
+
+    .calculator {
+      width: min(320px, 95vw);
+      background: #16213e;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .display {
+      background: #0f3460;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      text-align: right;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    .expression {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      min-height: 1.2em;
+      word-break: break-all;
+    }
+
+    .result {
+      font-size: 2rem;
+      font-weight: 600;
+      word-break: break-all;
+    }
+
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 18px;
+      font-size: 1.15rem;
+      cursor: pointer;
+      background: #1a1a2e;
+      color: #eee;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    button:hover {
+      background: #252545;
+    }
+
+    button:active {
+      transform: scale(0.96);
+    }
+
+    button.clear {
+      background: #dc2626;
+      color: #fff;
+    }
+
+    button.clear:hover {
+      background: #ef4444;
+    }
+
+    button.operator {
+      background: #0ea5e9;
+      color: #fff;
+    }
+
+    button.operator:hover {
+      background: #38bdf8;
+    }
+
+    button.equals {
+      background: #0f9b8e;
+      grid-column: span 2;
+    }
+
+    button.equals:hover {
+      background: #14b8a6;
+    }
+
+    button.wide {
+      grid-column: span 2;
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator">
+    <div class="display">
+      <div class="expression" id="expression"></div>
+      <div class="result" id="result">0</div>
+    </div>
+    <div class="keys">
+      <button type="button" class="clear" data-action="clear">C</button>
+      <button type="button" data-action="backspace">⌫</button>
+      <button type="button" data-action="operator" data-value="%">%</button>
+      <button type="button" class="operator" data-action="operator" data-value="/">÷</button>
+
+      <button type="button" data-action="digit" data-value="7">7</button>
+      <button type="button" data-action="digit" data-value="8">8</button>
+      <button type="button" data-action="digit" data-value="9">9</button>
+      <button type="button" class="operator" data-action="operator" data-value="*">×</button>
+
+      <button type="button" data-action="digit" data-value="4">4</button>
+      <button type="button" data-action="digit" data-value="5">5</button>
+      <button type="button" data-action="digit" data-value="6">6</button>
+      <button type="button" class="operator" data-action="operator" data-value="-">−</button>
+
+      <button type="button" data-action="digit" data-value="1">1</button>
+      <button type="button" data-action="digit" data-value="2">2</button>
+      <button type="button" data-action="digit" data-value="3">3</button>
+      <button type="button" class="operator" data-action="operator" data-value="+">+</button>
+
+      <button type="button" class="wide" data-action="digit" data-value="0">0</button>
+      <button type="button" data-action="decimal">,</button>
+      <button type="button" class="equals" data-action="equals">=</button>
+    </div>
+  </div>
+
+  <script>
+    const expressionEl = document.getElementById('expression');
+    const resultEl = document.getElementById('result');
+
+    let current = '0';
+    let stored = null;
+    let operator = null;
+    let shouldReset = false;
+
+    function formatNumber(value) {
+      const num = parseFloat(value);
+      if (!Number.isFinite(num)) return 'Ошибка';
+      const str = String(num);
+      if (str.includes('e')) return str;
+      const parts = str.split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      return parts.join(',');
+    }
+
+    function parseDisplay(str) {
+      return parseFloat(str.replace(/\s/g, '').replace(',', '.'));
+    }
+
+    function updateDisplay() {
+      resultEl.textContent = formatNumber(current);
+      if (stored !== null && operator) {
+        expressionEl.textContent =
+          formatNumber(stored) + ' ' + operatorDisplay(operator);
+      } else {
+        expressionEl.textContent = '';
+      }
+    }
+
+    function operatorDisplay(op) {
+      return { '+': '+', '-': '−', '*': '×', '/': '÷', '%': '%' }[op] || op;
+    }
+
+    function calculate(a, b, op) {
+      switch (op) {
+        case '+': return a + b;
+        case '-': return a - b;
+        case '*': return a * b;
+        case '/':
+          if (b === 0) return null;
+          return a / b;
+        case '%': return a % b;
+        default: return b;
+      }
+    }
+
+    function inputDigit(digit) {
+      if (shouldReset) {
+        current = digit;
+        shouldReset = false;
+      } else if (current === '0') {
+        current = digit;
+      } else {
+        current += digit;
+      }
+      updateDisplay();
+    }
+
+    function inputDecimal() {
+      if (shouldReset) {
+        current = '0,';
+        shouldReset = false;
+      } else if (!current.includes(',')) {
+        current += ',';
+      }
+      updateDisplay();
+    }
+
+    function setOperator(op) {
+      const value = parseDisplay(current);
+      if (stored !== null && operator && !shouldReset) {
+        const result = calculate(stored, value, operator);
+        if (result === null) {
+          current = '0';
+          stored = null;
+          operator = null;
+          resultEl.textContent = 'Деление на 0';
+          expressionEl.textContent = '';
+          shouldReset = true;
+          return;
+        }
+        current = String(result);
+        stored = result;
+      } else {
+        stored = value;
+      }
+      operator = op;
+      shouldReset = true;
+      updateDisplay();
+    }
+
+    function equals() {
+      if (operator === null || stored === null) return;
+      const value = parseDisplay(current);
+      const result = calculate(stored, value, operator);
+      if (result === null) {
+        resultEl.textContent = 'Деление на 0';
+        expressionEl.textContent = '';
+        current = '0';
+        stored = null;
+        operator = null;
+        shouldReset = true;
+        return;
+      }
+      expressionEl.textContent =
+        formatNumber(stored) + ' ' + operatorDisplay(operator) + ' ' + formatNumber(value) + ' =';
+      current = String(result);
+      stored = null;
+      operator = null;
+      shouldReset = true;
+      updateDisplay();
+    }
+
+    function clearAll() {
+      current = '0';
+      stored = null;
+      operator = null;
+      shouldReset = false;
+      updateDisplay();
+    }
+
+    function backspace() {
+      if (shouldReset) return;
+      if (current.length <= 1 || (current.length === 2 && current.startsWith('-'))) {
+        current = '0';
+      } else {
+        current = current.slice(0, -1);
+      }
+      updateDisplay();
+    }
+
+    document.querySelector('.keys').addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+      const value = btn.dataset.value;
+
+      switch (action) {
+        case 'digit': inputDigit(value); break;
+        case 'decimal': inputDecimal(); break;
+        case 'operator': setOperator(value); break;
+        case 'equals': equals(); break;
+        case 'clear': clearAll(); break;
+        case 'backspace': backspace(); break;
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key >= '0' && e.key <= '9') inputDigit(e.key);
+      else if (e.key === '.' || e.key === ',') inputDecimal();
+      else if (e.key === '+') setOperator('+');
+      else if (e.key === '-') setOperator('-');
+      else if (e.key === '*') setOperator('*');
+      else if (e.key === '/') { e.preventDefault(); setOperator('/'); }
+      else if (e.key === '%') setOperator('%');
+      else if (e.key === 'Enter' || e.key === '=') equals();
+      else if (e.key === 'Escape') clearAll();
+      else if (e.key === 'Backspace') backspace();
+    });
+  </script>
+</body>
+</html>
